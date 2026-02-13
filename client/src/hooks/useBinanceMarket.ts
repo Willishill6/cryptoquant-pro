@@ -92,7 +92,7 @@ function getBackendWsUrl(): string {
   return `${proto}//${window.location.host}/ws/market`;
 }
 
-const BINANCE_DIRECT_URL = "wss://stream.binance.com:9443/ws/!miniTicker@arr";
+const BINANCE_DIRECT_URL = "wss://stream.binance.com/ws/!miniTicker@arr"; // Use standard 443 port for HTTPS compatibility
 
 /**
  * Parse Binance direct miniTicker array message
