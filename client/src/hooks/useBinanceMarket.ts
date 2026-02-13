@@ -61,7 +61,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let notifyThrottleTimer: ReturnType<typeof setTimeout> | null = null;
 const MAX_RECONNECT_DELAY = 30_000;
 const NOTIFY_THROTTLE_MS = 200; // Throttle notifications to max 5/sec
-let useDirectBinance = false;
+let useDirectBinance = true; // Force direct Binance connection for static deployment
 let pendingNotify = false;
 
 function notifyListeners() {
