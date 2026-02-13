@@ -1,0 +1,338 @@
+/**
+ * Feature Routers - 业务数据tRPC路由
+ * 提供coins, strategies, trades, ai, alerts, portfolio, risk, config等API
+ */
+import { z } from "zod";
+import { publicProcedure, router } from "./_core/trpc";
+import * as db from "./db";
+
+// ─── Coins Router ──────────────────────────────────────────────────
+export const coinsRouter = router({
+  list: publicProcedure.query(async () => {
+    return db.getAllCoins();
+  }),
+  getBySymbol: publicProcedure
+    .input(z.object({ symbol: z.string() }))
+    .query(async ({ input }) => {
+      return db.getCoinBySymbol(input.symbol);
+    }),
+  upsert: publicProcedure
+    .input(z.object({
+      symbol: z.string(),
+      name: z.string(),
+      category: z.string().optional(),
+      price: z.number().optional(),
+      change24h: z.number().optional(),
+      volume: z.number().optional(),
+      marketCap: z.string().optional(),
+      aiSignal: z.enum(["买入", "卖出", "持有", "强烈买入", "强烈卖出"]).optional(),
+      aiConfidence: z.number().optional(),
+      riskLevel: z.enum(["低", "中", "高"]).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.upsertCoin(input);
+      return { success: true };
+    }),
+});
+
+// ─── Strategies Router ─────────────────────────────────────────────
+export const strategiesRouter = router({
+  list: publicProcedure.query(async () => {
+    return db.getAllStrategies();
+  }),
+  getById: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      return db.getStrategyById(input.id);
+    }),
+  create: publicProcedure
+    .input(z.object({
+      name: z.string(),
+      type: z.string().optional(),
+      status: z.enum(["运行中", "已暂停", "回测中", "已停止"]).optional(),
+      coins: z.string().optional(),
+      pnl: z.number().optional(),
+      pnlPercent: z.number().optional(),
+      winRate: z.number().optional(),
+      sharpe: z.number().optional(),
+      trades: z.number().optional(),
+      riskLevel: z.enum(["低", "中", "高"]).optional(),
+      description: z.string().optional(),
+      params: z.any().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.createStrategy(input);
+      return { success: true };
+    }),
+  update: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      data: z.object({
+        name: z.string().optional(),
+        type: z.string().optional(),
+        status: z.enum(["运行中", "已暂停", "回测中", "已停止"]).optional(),
+        coins: z.string().optional(),
+        pnl: z.number().optional(),
+        pnlPercent: z.number().optional(),
+        winRate: z.number().optional(),
+        sharpe: z.number().optional(),
+        trades: z.number().optional(),
+        riskLevel: z.enum(["低", "中", "高"]).optional(),
+        description: z.string().optional(),
+        params: z.any().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      await db.updateStrategy(input.id, input.data);
+      return { success: true };
+    }),
+});
+
+// ─── Trades Router ─────────────────────────────────────────────────
+export const tradesRouter = router({
+  list: publicProcedure
+    .input(z.object({ limit: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      return db.getAllTrades(input?.limit ?? 100);
+    }),
+  create: publicProcedure
+    .input(z.object({
+      coin: z.string(),
+      type: z.enum(["买入", "卖出"]),
+      price: z.number(),
+      amount: z.number(),
+      total: z.number(),
+      strategyId: z.number().optional(),
+      strategyName: z.string().optional(),
+      pnl: z.number().optional(),
+      fee: z.number().optional(),
+      exchange: z.string().optional(),
+      aiConfidence: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.createTrade(input);
+      return { success: true };
+    }),
+  byStrategy: publicProcedure
+    .input(z.object({ strategyId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getTradesByStrategy(input.strategyId);
+    }),
+});
+
+// ─── AI Models Router ──────────────────────────────────────────────
+export const aiRouter = router({
+  models: publicProcedure.query(async () => {
+    return db.getAllAIModels();
+  }),
+  upsertModel: publicProcedure
+    .input(z.object({
+      name: z.string(),
+      type: z.string(),
+      accuracy: z.number().optional(),
+      winRate: z.number().optional(),
+      sharpe: z.number().optional(),
+      latency: z.number().optional(),
+      pnl: z.number().optional(),
+      tradesCount: z.number().optional(),
+      weight: z.number().optional(),
+      status: z.enum(["主力", "辅助", "备用", "降级", "观察"]).optional(),
+      score: z.number().optional(),
+      aiRank: z.number().optional(),
+      streak: z.number().optional(),
+      cooldown: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.upsertAIModel(input);
+      return { success: true };
+    }),
+  updateModel: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      data: z.object({
+        accuracy: z.number().optional(),
+        winRate: z.number().optional(),
+        sharpe: z.number().optional(),
+        latency: z.number().optional(),
+        pnl: z.number().optional(),
+        weight: z.number().optional(),
+        status: z.enum(["主力", "辅助", "备用", "降级", "观察"]).optional(),
+        score: z.number().optional(),
+        aiRank: z.number().optional(),
+        streak: z.number().optional(),
+        cooldown: z.boolean().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      await db.updateAIModel(input.id, input.data);
+      return { success: true };
+    }),
+  schedulerEvents: publicProcedure
+    .input(z.object({ limit: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      return db.getSchedulerEvents(input?.limit ?? 50);
+    }),
+  createSchedulerEvent: publicProcedure
+    .input(z.object({
+      eventType: z.enum(["promote", "demote", "rebalance", "alert", "cooldown", "emergency"]),
+      fromModel: z.string(),
+      toModel: z.string(),
+      reason: z.string(),
+      metricsAccuracy: z.number().optional(),
+      metricsWinRate: z.number().optional(),
+      metricsScore: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.createSchedulerEvent(input);
+      return { success: true };
+    }),
+});
+
+// ─── Alerts Router ─────────────────────────────────────────────────
+export const alertsRouter = router({
+  list: publicProcedure
+    .input(z.object({ limit: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      return db.getAllAlerts(input?.limit ?? 50);
+    }),
+  create: publicProcedure
+    .input(z.object({
+      severity: z.enum(["critical", "warning", "info", "success"]),
+      category: z.string(),
+      title: z.string(),
+      message: z.string(),
+      strategy: z.string().optional(),
+      coin: z.string().optional(),
+      value: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.createAlert(input);
+      return { success: true };
+    }),
+  acknowledge: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.acknowledgeAlert(input.id);
+      return { success: true };
+    }),
+  acknowledgeAll: publicProcedure.mutation(async () => {
+    await db.acknowledgeAllAlerts();
+    return { success: true };
+  }),
+});
+
+// ─── Portfolio Router ──────────────────────────────────────────────
+export const portfolioRouter = router({
+  get: publicProcedure.query(async () => {
+    return db.getPortfolio();
+  }),
+  update: publicProcedure
+    .input(z.object({
+      totalValue: z.number().optional(),
+      dailyPnl: z.number().optional(),
+      dailyPnlPercent: z.number().optional(),
+      totalPnl: z.number().optional(),
+      totalPnlPercent: z.number().optional(),
+      winRate: z.number().optional(),
+      sharpe: z.number().optional(),
+      maxDrawdown: z.number().optional(),
+      totalTrades: z.number().optional(),
+      activeSince: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.upsertPortfolio(input);
+      return { success: true };
+    }),
+});
+
+// ─── Exchanges Router ──────────────────────────────────────────────
+export const exchangesRouter = router({
+  list: publicProcedure.query(async () => {
+    return db.getAllExchanges();
+  }),
+});
+
+// ─── Risk Router ───────────────────────────────────────────────────
+export const riskRouter = router({
+  get: publicProcedure.query(async () => {
+    return db.getRiskMetrics();
+  }),
+  update: publicProcedure
+    .input(z.object({
+      portfolioVar: z.number().optional(),
+      maxDrawdown: z.number().optional(),
+      sharpeRatio: z.number().optional(),
+      sortinoRatio: z.number().optional(),
+      beta: z.number().optional(),
+      alpha: z.number().optional(),
+      correlation: z.number().optional(),
+      leverage: z.number().optional(),
+      marginUsage: z.number().optional(),
+      liquidationRisk: z.string().optional(),
+      riskScore: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.upsertRiskMetrics(input);
+      return { success: true };
+    }),
+});
+
+// ─── Config Router ─────────────────────────────────────────────────
+export const configRouter = router({
+  list: publicProcedure.query(async () => {
+    return db.getAllConfigs();
+  }),
+  get: publicProcedure
+    .input(z.object({ key: z.string() }))
+    .query(async ({ input }) => {
+      return db.getConfig(input.key);
+    }),
+  set: publicProcedure
+    .input(z.object({
+      key: z.string(),
+      value: z.string(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.setConfig(input.key, input.value, input.description);
+      return { success: true };
+    }),
+});
+
+// ─── Alpha Factors Router ──────────────────────────────────────────
+export const alphaFactorsRouter = router({
+  list: publicProcedure.query(async () => {
+    return db.getAllAlphaFactors();
+  }),
+  create: publicProcedure
+    .input(z.object({
+      name: z.string(),
+      category: z.string(),
+      ic: z.number().optional(),
+      sharpe: z.number().optional(),
+      turnover: z.number().optional(),
+      status: z.enum(["活跃", "测试中", "已停用"]).optional(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      await db.createAlphaFactor(input);
+      return { success: true };
+    }),
+  update: publicProcedure
+    .input(z.object({
+      id: z.number(),
+      data: z.object({
+        name: z.string().optional(),
+        category: z.string().optional(),
+        ic: z.number().optional(),
+        sharpe: z.number().optional(),
+        turnover: z.number().optional(),
+        status: z.enum(["活跃", "测试中", "已停用"]).optional(),
+        description: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      await db.updateAlphaFactor(input.id, input.data);
+      return { success: true };
+    }),
+});
